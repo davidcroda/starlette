@@ -286,3 +286,40 @@ def test_cors_allowed_origin_does_not_leak_between_credentialed_requests():
 
     response = client.get("/", headers={"Origin": "https://someplace.org"})
     assert response.headers["access-control-allow-origin"] == "*"
+
+
+def test_cors_allow_wildcard_origin():
+    app = Starlette()
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://*.example.org"],
+        allow_headers=["X-Example", "Content-Type"],
+    )
+
+    @app.route("/")
+    def homepage(request):
+        return PlainTextResponse("Homepage", status_code=200)
+
+    client = TestClient(app)
+
+    # Test pre-flight response
+    headers = {
+        "Origin": "https://test.example.org",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "X-Example, Content-Type",
+    }
+    response = client.options("/", headers=headers)
+    assert response.status_code == 200
+    assert response.text == "OK"
+    assert response.headers["access-control-allow-origin"] == "https://test.example.org"
+    assert response.headers["access-control-allow-headers"] == (
+        "Accept, Accept-Language, Content-Language, Content-Type, X-Example"
+    )
+
+    # Test standard response
+    headers = {"Origin": "https://test.example.org"}
+    response = client.get("/", headers=headers)
+    assert response.status_code == 200
+    assert response.text == "Homepage"
+    assert response.headers["access-control-allow-origin"] == "https://test.example.org"
