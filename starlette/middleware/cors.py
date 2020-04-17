@@ -94,7 +94,17 @@ class CORSMiddleware:
         ):
             return True
 
-        return origin in self.allow_origins
+        if origin in self.allow_origins:
+            return True
+
+        for allowed in self.allow_origins:
+            if "*" in allowed and (
+                origin.startswith(allowed[: allowed.index("*")])
+                and origin.endswith(allowed[allowed.index("*") + 1 :])
+            ):
+                return True
+
+        return False
 
     def preflight_response(self, request_headers: Headers) -> Response:
         requested_origin = request_headers["origin"]
